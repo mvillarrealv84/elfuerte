@@ -1,0 +1,8 @@
+{
+  "name": "auditoria-pipas-dashboard",
+  "version": "1.0.0",
+  "description": "Dashboard Global de Auditoría de Pipas de Agua con IA, Supabase y Vercel",
+  "scripts": {
+    "start": "serve ."
+  }
+}

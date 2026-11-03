@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auditoría de Pipas - Dashboard Global (Vercel + Supabase)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Supabase JS Client v2 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white">
+
+    <!-- Navbar Global -->
+    <header class="bg-slate-850/90 border-b border-slate-700/80 sticky top-0 z-40 backdrop-blur-md shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-cyan-500/20 text-cyan-400 p-2 rounded-xl border border-cyan-500/30 shadow-inner">
+                    <i data-lucide="droplets" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="font-extrabold text-base sm:text-lg text-white leading-tight">Auditoría de Pipas</h1>
+                        <span class="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 text-[10px] font-mono px-2 py-0.5 rounded-full border border-cyan-500/30">Nube Vercel</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Control de Tomas de Agua con Inteligencia Artificial</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <!-- Indicador de Tiempo Real Supabase -->
+                <div id="realtime-status" class="hidden sm:flex items-center space-x-2 text-xs bg-slate-950/80 px-3 py-1.5 rounded-full border border-slate-700">
+                    <span id="realtime-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="realtime-text" class="text-slate-300">Nube Activa (Realtime)</span>
+                </div>
+
+                <button onclick="exportarCSV()" class="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 transition shadow">
+                    <i data-lucide="download" class="w-4 h-4 text-cyan-400"></i>
+                    <span class="hidden md:inline">Exportar Excel</span>
+                </button>
+
+                <button onclick="cargarEventos()" class="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition border border-transparent hover:border-slate-700" title="Actualizar datos">
+                    <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Banner de Notificación de Nueva Detección en Vivo -->
+        <div id="toast-nueva-pipa" class="hidden transform transition-all duration-300 bg-gradient-to-r from-cyan-900/90 via-slate-800 to-cyan-900/90 border border-cyan-500/50 rounded-2xl p-4 shadow-xl flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="p-2 bg-cyan-500 text-slate-950 rounded-xl font-bold">
+                    <i data-lucide="bell-ring" class="w-5 h-5 animate-bounce"></i>
+                </span>
+                <div>
+                    <h4 class="text-sm font-bold text-white">¡Nueva Pipa Detectada en Sitio en Tiempo Real!</h4>
+                    <p id="toast-detalle" class="text-xs text-cyan-200">Se acaba de sincronizar una nueva evidencia con foto satelital/sitio.</p>
+                </div>
+            </div>
+            <button onclick="document.getElementById('toast-nueva-pipa').classList.add('hidden')" class="text-slate-400 hover:text-white p-1">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Top Metrics Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Total Pipas Detectadas -->
+            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pipas de Agua Registradas</p>
+                        <h3 id="stat-total-pipas" class="text-3xl font-black text-white mt-1">0</h3>
+                    </div>
+                    <div class="p-3 bg-cyan-500/10 text-cyan-400 rounded-xl border border-cyan-500/20">
+                        <i data-lucide="truck" class="w-6 h-6"></i>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center text-xs text-slate-400">
+                    <span class="text-cyan-400 font-semibold mr-1">Auditoría IA</span> en la toma de agua
+                </div>
+            </div>
+
+            <!-- Con Placa Leída -->
+            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Con Placa Leída</p>
+                        <h3 id="stat-con-placa" class="text-3xl font-black text-emerald-400 mt-1">0</h3>
+                    </div>
+                    <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+                        <i data-lucide="check-circle" class="w-6 h-6"></i>
+                    </div>
+                </div>
+                <div class="mt-3 text-xs text-slate-400">
+                    Lectura automática por cámara ANPR
+                </div>
+            </div>
+
+            <!-- Sin Placa (Identificada por IA) -->
+            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Sin Placa (Rescate IA)</p>
+                        <h3 id="stat-sin-placa" class="text-3xl font-black text-amber-400 mt-1">0</h3>
+                    </div>
+                    <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+                        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                    </div>
+                </div>
+                <div class="mt-3 text-xs text-slate-400">
+                    Identificadas por modelo YOLO NCNN
+                </div>
+            </div>
+
+            <!-- Otros Vehículos Descartados -->
+            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Otros Vehículos</p>
+                        <h3 id="stat-otros" class="text-3xl font-black text-slate-400 mt-1">0</h3>
+                    </div>
+                    <div class="p-3 bg-slate-700/50 text-slate-400 rounded-xl border border-slate-600">
+                        <i data-lucide="car" class="w-6 h-6"></i>
+                    </div>
+                </div>
+                <div class="mt-3 text-xs text-slate-400">
+                    Autos y camionetas descartados
+                </div>
+            </div>
+        </div>
+
+        <!-- Módulo de Auditoría de Vales de Papel vs Cámara -->
+        <div class="bg-gradient-to-r from-slate-800 via-slate-850 to-slate-800 border border-slate-700 rounded-2xl p-6 shadow-md">
+            <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                <div class="space-y-1">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="scale" class="w-5 h-5 text-cyan-400"></i>
+                        <h2 class="text-lg font-bold text-white">Auditoría de Vales vs Pipas Registradas</h2>
+                    </div>
+                    <p class="text-xs sm:text-sm text-slate-400">Ingresa la cantidad de vales cobrados en el turno para cotejar contra las fotos capturadas:</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+                    <div class="flex items-center bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 focus-within:border-cyan-400">
+                        <label for="vales-input" class="text-xs font-semibold text-slate-400 mr-3">Vales cobrados:</label>
+                        <input id="vales-input" type="number" min="0" placeholder="0" class="w-20 bg-transparent text-xl font-bold text-white focus:outline-none text-right" oninput="calcularAuditoria()">
+                    </div>
+
+                    <!-- Resultado de Cuadre -->
+                    <div id="resultado-cuadre" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl border bg-slate-900/60 border-slate-700">
+                        <span class="text-sm text-slate-400">Introduce los vales para auditar.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra de Filtros y Búsqueda -->
+        <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-slate-800/60 border border-slate-700 p-4 rounded-xl">
+            <!-- Filtros de Tipo -->
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs font-semibold text-slate-400 uppercase mr-1">Filtrar:</span>
+                <button onclick="cambiarFiltro('TODAS')" class="filtro-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-cyan-600 text-white" data-filtro="TODAS">Todas las Pipas</button>
+                <button onclick="cambiarFiltro('SIN_PLACA')" class="filtro-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600" data-filtro="SIN_PLACA">Sin Placa</button>
+                <button onclick="cambiarFiltro('CON_PLACA')" class="filtro-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600" data-filtro="CON_PLACA">Con Placa</button>
+                <button onclick="cambiarFiltro('OTROS')" class="filtro-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600" data-filtro="OTROS">Otros</button>
+            </div>
+
+            <!-- Filtro de Fecha y Buscador -->
+            <div class="flex items-center space-x-3">
+                <select id="filtro-fecha" onchange="cargarEventos()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500">
+                    <option value="HOY" selected>Hoy</option>
+                    <option value="AYER">Ayer</option>
+                    <option value="SEMANA">Últimos 7 días</option>
+                    <option value="TODOS">Histórico Completo</option>
+                </select>
+
+                <div class="relative">
+                    <input id="buscador-placa" type="text" placeholder="Buscar por placa..." oninput="filtrarPlaca(this.value)" class="bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:border-cyan-500 w-40 sm:w-48">
+                    <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vehicle Passes Gallery & List -->
+        <div class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                    <i data-lucide="history" class="w-5 h-5 text-cyan-400"></i>
+                    <span>Evidencias y Registros Fotográficos</span>
+                </h3>
+                <span id="contador-filtrados" class="text-xs text-slate-400">Mostrando 0 registros</span>
+            </div>
+
+            <!-- List Grid -->
+            <div id="vehiculos-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Tarjetas dinámicas generadas desde Supabase -->
+            </div>
+
+            <!-- Estado Vacío -->
+            <div id="empty-state" class="hidden text-center py-16 bg-slate-800/40 border border-slate-700/60 rounded-2xl">
+                <div class="w-12 h-12 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto text-slate-400 mb-3">
+                    <i data-lucide="inbox" class="w-6 h-6"></i>
+                </div>
+                <h4 class="text-sm font-semibold text-slate-300">No hay registros con los filtros seleccionados</h4>
+                <p class="text-xs text-slate-500 mt-1">Las pipas registradas por la Raspberry en sitio aparecerán aquí automáticamente.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal para ver imagen ampliada con selector de foto original o con recuadro IA -->
+    <div id="image-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="cerrarModal()">
+        <div class="max-w-4xl w-full bg-slate-800 rounded-2xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col" onclick="event.stopPropagation()">
+            <div class="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-800">
+                <div>
+                    <div id="modal-title" class="text-sm font-bold text-white">Detalle de Evidencia</div>
+                    <div id="modal-info" class="text-xs text-slate-400 mt-0.5"></div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="btn-toggle-img" onclick="toggleImagenModal()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg border border-slate-600 text-slate-200">
+                        Ver Original / Anotada
+                    </button>
+                    <button onclick="cerrarModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-950 flex justify-center items-center min-h-[300px]">
+                <img id="modal-img" src="" alt="Evidencia en Nube" class="max-h-[75vh] object-contain rounded-lg shadow-lg">
+            </div>
+            <div class="p-3 bg-slate-850 border-t border-slate-700 text-xs text-slate-400 flex items-center justify-between">
+                <span>Almacenado de forma segura en Supabase Storage CDN</span>
+                <a id="modal-download-link" href="#" target="_blank" download class="text-cyan-400 hover:underline flex items-center space-x-1">
+                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                    <span>Abrir archivo en alta resolución</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Frontend Script conectado a Supabase -->
+    <script>
+        // Configuración de Supabase
+        const SUPABASE_URL = "https://rzrlulbhcswphsyzeabv.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_th7e9_KpbWc7hIAiv0JQrQ_eIsAIgTn";
+
+        // Inicializar cliente oficial de Supabase
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let eventos = [];
+        let filtroActual = 'TODAS';
+        let textoBusqueda = '';
+        let modalFotoActual = { orig: '', annot: '', showing: 'annot' };
+
+        // Cargar eventos desde Supabase PostgreSQL
+        async function cargarEventos() {
+            try {
+                const rangoFecha = document.getElementById('filtro-fecha').value;
+                let query = supabase.from('vehicle_passes').select('*').order('created_at', { ascending: false });
+
+                const ahora = new Date();
+                if (rangoFecha === 'HOY') {
+                    const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).toISOString();
+                    query = query.gte('created_at', hoyInicio);
+                } else if (rangoFecha === 'AYER') {
+                    const ayerInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1);
+                    const ayerFin = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+                    query = query.gte('created_at', ayerInicio.toISOString()).lt('created_at', ayerFin.toISOString());
+                } else if (rangoFecha === 'SEMANA') {
+                    const semanaInicio = new Date(ahora.getTime() - (7 * 24 * 60 * 60 * 1000)).toISOString();
+                    query = query.gte('created_at', semanaInicio);
+                }
+
+                const { data, error } = await query;
+                if (error) throw error;
+
+                eventos = data || [];
+                actualizarEstadisticas();
+                renderizarEventos();
+                calcularAuditoria();
+            } catch (err) {
+                console.error("Error al cargar eventos de Supabase:", err);
+            }
+        }
+
+        function actualizarEstadisticas() {
+            const pipas = eventos.filter(e => e.is_pipa);
+            const conPlaca = pipas.filter(e => e.plate && e.plate !== 'SIN_PLACA');
+            const sinPlaca = pipas.filter(e => !e.plate || e.plate === 'SIN_PLACA');
+            const otros = eventos.filter(e => !e.is_pipa);
+
+            document.getElementById('stat-total-pipas').textContent = pipas.length;
+            document.getElementById('stat-con-placa').textContent = conPlaca.length;
+            document.getElementById('stat-sin-placa').textContent = sinPlaca.length;
+            document.getElementById('stat-otros').textContent = otros.length;
+        }
+
+        function calcularAuditoria() {
+            const valesInput = document.getElementById('vales-input');
+            const totalPipas = parseInt(document.getElementById('stat-total-pipas').textContent) || 0;
+            const contenedor = document.getElementById('resultado-cuadre');
+
+            if (valesInput.value === '') {
+                contenedor.className = "flex items-center space-x-3 px-4 py-2.5 rounded-xl border bg-slate-900/60 border-slate-700";
+                contenedor.innerHTML = `<span class="text-sm text-slate-400">Introduce los vales para auditar.</span>`;
+                return;
+            }
+
+            const vales = parseInt(valesInput.value) || 0;
+            const diferencia = totalPipas - vales;
+
+            if (diferencia === 0) {
+                contenedor.className = "flex items-center space-x-2 px-4 py-2.5 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-semibold";
+                contenedor.innerHTML = `
+                    <i data-lucide="check-check" class="w-5 h-5"></i>
+                    <span>¡Cuadre perfecto! ${vales} vales = ${totalPipas} pipas</span>
+                `;
+            } else if (diferencia > 0) {
+                contenedor.className = "flex items-center space-x-2 px-4 py-2.5 rounded-xl border bg-rose-500/10 border-rose-500/30 text-rose-400 font-bold";
+                contenedor.innerHTML = `
+                    <i data-lucide="alert-octagon" class="w-5 h-5"></i>
+                    <span>🚨 FALTANTE: ${diferencia} pipa(s) sin vale cobrado</span>
+                `;
+            } else {
+                contenedor.className = "flex items-center space-x-2 px-4 py-2.5 rounded-xl border bg-amber-500/10 border-amber-500/30 text-amber-400 font-semibold";
+                contenedor.innerHTML = `
+                    <i data-lucide="info" class="w-5 h-5"></i>
+                    <span>Hay más vales (${vales}) que pipas registradas (${totalPipas})</span>
+                `;
+            }
+            lucide.createIcons();
+        }
+
+        function cambiarFiltro(tipo) {
+            filtroActual = tipo;
+            document.querySelectorAll('.filtro-btn').forEach(btn => {
+                if (btn.getAttribute('data-filtro') === tipo) {
+                    btn.className = "filtro-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-cyan-600 text-white shadow";
+                } else {
+                    btn.className = "filtro-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600";
+                }
+            });
+            renderizarEventos();
+        }
+
+        function filtrarPlaca(texto) {
+            textoBusqueda = texto.trim().toUpperCase();
+            renderizarEventos();
+        }
+
+        function renderizarEventos() {
+            const grid = document.getElementById('vehiculos-grid');
+            const empty = document.getElementById('empty-state');
+            grid.innerHTML = '';
+
+            let filtrados = eventos.filter(ev => {
+                if (filtroActual === 'TODAS' && !ev.is_pipa) return false;
+                if (filtroActual === 'SIN_PLACA' && (!ev.is_pipa || ev.plate !== 'SIN_PLACA')) return false;
+                if (filtroActual === 'CON_PLACA' && (!ev.is_pipa || ev.plate === 'SIN_PLACA')) return false;
+                if (filtroActual === 'OTROS' && ev.is_pipa) return false;
+
+                if (textoBusqueda && (!ev.plate || !ev.plate.toUpperCase().includes(textoBusqueda))) {
+                    return false;
+                }
+                return true;
+            });
+
+            document.getElementById('contador-filtrados').textContent = `Mostrando ${filtrados.length} de ${eventos.length} registros`;
+
+            if (filtrados.length === 0) {
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+
+            filtrados.forEach(ev => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-sm flex flex-col hover:border-slate-600 transition group";
+
+                const isPipa = ev.is_pipa;
+                const tienePlaca = ev.plate && ev.plate !== 'SIN_PLACA';
+                const fechaObj = new Date(ev.created_at);
+                const fechaHora = fechaObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const fecha = fechaObj.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+
+                const imgSrc = ev.annotated_image_url || ev.image_url || 'https://images.unsplash.com/photo-1584441405886-bc91be61e56a?auto=format&fit=crop&w=600&q=80';
+
+                card.innerHTML = `
+                    <div class="relative bg-black aspect-video cursor-pointer overflow-hidden" onclick="abrirModal('${ev.image_url}', '${ev.annotated_image_url}', '${ev.vehicle_type}', '${ev.plate}', '${ev.created_at}')">
+                        <img src="${imgSrc}" loading="lazy" alt="Evidencia" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                        <div class="absolute top-2 left-2 bg-slate-900/80 backdrop-blur-sm px-2.5 py-1 rounded-md text-[11px] font-medium text-slate-200">
+                            ${fecha} • ${fechaHora}
+                        </div>
+                        <div class="absolute top-2 right-2">
+                            ${isPipa ? 
+                                `<span class="bg-cyan-500 text-slate-950 text-xs font-black px-2.5 py-0.5 rounded shadow">💧 PIPA</span>` : 
+                                `<span class="bg-slate-600/90 text-slate-200 text-xs font-medium px-2 py-0.5 rounded shadow">OTRO</span>`
+                            }
+                        </div>
+                    </div>
+                    <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-slate-400">Placa detectada</span>
+                                <div class="mt-0.5">
+                                    ${tienePlaca ? 
+                                        `<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-sm font-mono font-bold px-2.5 py-1 rounded-lg">${ev.plate}</span>` : 
+                                        `<span class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold px-2 py-0.5 rounded-lg">SIN PLACA (IA NCNN)</span>`
+                                    }
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] uppercase font-bold text-slate-400">Confianza IA</span>
+                                <div class="text-xs font-semibold text-slate-200 mt-0.5">${(ev.confidence * 100).toFixed(1)}%</div>
+                            </div>
+                        </div>
+
+                        <!-- Auditoría / Etiquetado en Nube -->
+                        <div class="border-t border-slate-700/60 pt-2.5 space-y-1.5">
+                            <div class="flex items-center justify-between text-[10px] uppercase font-bold text-slate-400">
+                                <span>Verificación de Auditor</span>
+                                ${ev.user_label ? 
+                                    `<span class="text-indigo-400 font-bold flex items-center space-x-1"><i data-lucide="check" class="w-3 h-3"></i><span>Auditado</span></span>` : 
+                                    `<span class="text-slate-500">Confirmar</span>`
+                                }
+                            </div>
+                            
+                            ${ev.user_label ? `
+                                <div class="bg-indigo-950/70 border border-indigo-500/40 text-indigo-300 text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between">
+                                    <span class="font-medium text-[11px]">Auditado: <strong class="text-white">${ev.user_label.replace('_', ' ').toUpperCase()}</strong></span>
+                                    <button onclick="cambiarEtiqueta(${ev.id})" class="text-[10px] text-slate-400 hover:text-white underline ml-2">Cambiar</button>
+                                </div>
+                            ` : `
+                                <div class="grid grid-cols-3 gap-1.5 text-[11px]">
+                                    <button onclick="guardarEtiqueta(${ev.id}, 'pipa_agua')" class="bg-cyan-950/80 hover:bg-cyan-800 border border-cyan-500/40 text-cyan-200 py-1 px-1.5 rounded-lg flex items-center justify-center space-x-1 transition">
+                                        <span>💧 Es Pipa</span>
+                                    </button>
+                                    <button onclick="guardarEtiqueta(${ev.id}, 'automovil')" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 py-1 px-1.5 rounded-lg flex items-center justify-center space-x-1 transition">
+                                        <span>🚗 Auto</span>
+                                    </button>
+                                    <button onclick="guardarEtiqueta(${ev.id}, 'falsa_alarma')" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 text-rose-300 py-1 px-1.5 rounded-lg flex items-center justify-center space-x-1 transition">
+                                        <span>❌ Descartar</span>
+                                    </button>
+                                </div>
+                            `}
+                        </div>
+
+                        <div class="text-[11px] text-slate-500 flex items-center justify-between border-t border-slate-700/60 pt-2">
+                            <span>Origen: ${ev.source || 'Raspberry Pi'}</span>
+                            <span class="font-mono">ID #${ev.id}</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        async function guardarEtiqueta(id, label) {
+            try {
+                const { error } = await supabase.from('vehicle_passes').update({ user_label: label }).eq('id', id);
+                if (error) throw error;
+                cargarEventos();
+            } catch (err) {
+                alert("Error al actualizar etiqueta: " + err.message);
+            }
+        }
+
+        async function cambiarEtiqueta(id) {
+            try {
+                const { error } = await supabase.from('vehicle_passes').update({ user_label: null }).eq('id', id);
+                if (error) throw error;
+                cargarEventos();
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
+        }
+
+        function abrirModal(origUrl, annotUrl, tipo, placa, timestamp) {
+            modalFotoActual.orig = origUrl || annotUrl;
+            modalFotoActual.annot = annotUrl || origUrl;
+            modalFotoActual.showing = 'annot';
+
+            const modalImg = document.getElementById('modal-img');
+            modalImg.src = modalFotoActual.annot;
+
+            document.getElementById('modal-title').textContent = `${tipo} - ${placa || 'Sin placa'}`;
+            document.getElementById('modal-info').textContent = `Captura en sitio registrada el ${new Date(timestamp).toLocaleString()}`;
+            document.getElementById('modal-download-link').href = modalFotoActual.annot;
+
+            document.getElementById('image-modal').classList.remove('hidden');
+        }
+
+        function toggleImagenModal() {
+            const modalImg = document.getElementById('modal-img');
+            if (modalFotoActual.showing === 'annot' && modalFotoActual.orig) {
+                modalImg.src = modalFotoActual.orig;
+                modalFotoActual.showing = 'orig';
+                document.getElementById('modal-download-link').href = modalFotoActual.orig;
+            } else if (modalFotoActual.annot) {
+                modalImg.src = modalFotoActual.annot;
+                modalFotoActual.showing = 'annot';
+                document.getElementById('modal-download-link').href = modalFotoActual.annot;
+            }
+        }
+
+        function cerrarModal() {
+            document.getElementById('image-modal').classList.add('hidden');
+        }
+
+        function exportarCSV() {
+            if (eventos.length === 0) {
+                alert("No hay datos para exportar.");
+                return;
+            }
+
+            let csv = "ID,Fecha,Hora,Tipo_Vehiculo,Es_Pipa,Placa,Confianza_IA,Origen,URL_Foto,Auditado\n";
+            eventos.forEach(e => {
+                const f = new Date(e.created_at);
+                const fecha = f.toISOString().split('T')[0];
+                const hora = f.toTimeString().split(' ')[0];
+                csv += `"${e.id}","${fecha}","${hora}","${e.vehicle_type}","${e.is_pipa}","${e.plate || 'SIN_PLACA'}","${e.confidence}","${e.source}","${e.image_url || e.annotated_image_url || ''}","${e.user_label || ''}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `auditoria_pipas_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- Suscripción en Tiempo Real (Supabase Realtime) ---
+        function suscribirRealtime() {
+            supabase
+                .channel('public:vehicle_passes')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'vehicle_passes' }, (payload) => {
+                    const nuevo = payload.new;
+                    // Mostrar Toast de notificación
+                    const toast = document.getElementById('toast-nueva-pipa');
+                    document.getElementById('toast-detalle').textContent = `Vehículo: ${nuevo.vehicle_type} | Placa: ${nuevo.plate || 'SIN_PLACA'} | Confianza: ${(nuevo.confidence * 100).toFixed(0)}%`;
+                    toast.classList.remove('hidden');
+
+                    // Agregar al inicio de la lista y actualizar
+                    eventos.unshift(nuevo);
+                    actualizarEstadisticas();
+                    renderizarEventos();
+                    calcularAuditoria();
+
+                    setTimeout(() => {
+                        toast.classList.add('hidden');
+                    }, 8000);
+                })
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        document.getElementById('realtime-text').textContent = "Nube Conectada en Vivo";
+                        document.getElementById('realtime-dot').className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+                    }
+                });
+        }
+
+        // Carga Inicial
+        cargarEventos();
+        suscribirRealtime();
+        lucide.createIcons();
+    </script>
+</body>
+</html>
