@@ -253,7 +253,9 @@
         const SUPABASE_ANON_KEY = "sb_publishable_th7e9_KpbWc7hIAiv0JQrQ_eIsAIgTn";
 
         // Inicializar cliente oficial de Supabase
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = (window.supabase && window.supabase.createClient) 
+            ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+            : null;
 
         let eventos = [];
         let filtroActual = 'TODAS';
@@ -264,27 +266,47 @@
         async function cargarEventos() {
             try {
                 const rangoFecha = document.getElementById('filtro-fecha').value;
-                let query = supabase.from('vehicle_passes').select('*').order('created_at', { ascending: false });
+                let data = null;
 
-                const ahora = new Date();
-                if (rangoFecha === 'HOY') {
-                    const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
-                    query = query.gte('created_at', hoyInicio.toISOString());
-                } else if (rangoFecha === 'AYER') {
-                    const ayerInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1, 0, 0, 0);
-                    const ayerFin = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
-                    query = query.gte('created_at', ayerInicio.toISOString()).lt('created_at', ayerFin.toISOString());
-                } else if (rangoFecha === 'SEMANA') {
-                    const semanaInicio = new Date(ahora.getTime() - (7 * 24 * 60 * 60 * 1000)).toISOString();
-                    query = query.gte('created_at', semanaInicio);
+                if (supabaseClient) {
+                    let query = supabaseClient.from('vehicle_passes').select('*').order('created_at', { ascending: false });
+
+                    const ahora = new Date();
+                    if (rangoFecha === 'HOY') {
+                        const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
+                        query = query.gte('created_at', hoyInicio.toISOString());
+                    } else if (rangoFecha === 'AYER') {
+                        const ayerInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1, 0, 0, 0);
+                        const ayerFin = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
+                        query = query.gte('created_at', ayerInicio.toISOString()).lt('created_at', ayerFin.toISOString());
+                    } else if (rangoFecha === 'SEMANA') {
+                        const semanaInicio = new Date(ahora.getTime() - (7 * 24 * 60 * 60 * 1000)).toISOString();
+                        query = query.gte('created_at', semanaInicio);
+                    }
+
+                    const res = await query;
+                    if (!res.error && res.data) {
+                        data = res.data;
+                    }
                 }
 
-                const { data, error } = await query;
-                if (error) throw error;
+                // Fallback directo con fetch si el SDK no respondió
+                if (!data) {
+                    let url = `${SUPABASE_URL}/rest/v1/vehicle_passes?select=*&order=created_at.desc`;
+                    const res = await fetch(url, {
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        }
+                    });
+                    if (res.ok) {
+                        data = await res.json();
+                    }
+                }
 
                 const nuevosIds = (data || []).map(d => `${d.id}-${d.user_label}`).join(',');
                 const viejosIds = eventos.map(d => `${d.id}-${d.user_label}`).join(',');
-                if (nuevosIds !== viejosIds || data.length !== eventos.length) {
+                if (nuevosIds !== viejosIds || (data && data.length !== eventos.length)) {
                     eventos = data || [];
                     actualizarEstadisticas();
                     renderizarEventos();
@@ -471,8 +493,19 @@
 
         async function guardarEtiqueta(id, label) {
             try {
-                const { error } = await supabase.from('vehicle_passes').update({ user_label: label }).eq('id', id);
-                if (error) throw error;
+                if (supabaseClient) {
+                    await supabaseClient.from('vehicle_passes').update({ user_label: label }).eq('id', id);
+                } else {
+                    await fetch(`${SUPABASE_URL}/rest/v1/vehicle_passes?id=eq.${id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ user_label: label })
+                    });
+                }
                 cargarEventos();
             } catch (err) {
                 alert("Error al actualizar etiqueta: " + err.message);
@@ -481,8 +514,19 @@
 
         async function cambiarEtiqueta(id) {
             try {
-                const { error } = await supabase.from('vehicle_passes').update({ user_label: null }).eq('id', id);
-                if (error) throw error;
+                if (supabaseClient) {
+                    await supabaseClient.from('vehicle_passes').update({ user_label: null }).eq('id', id);
+                } else {
+                    await fetch(`${SUPABASE_URL}/rest/v1/vehicle_passes?id=eq.${id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ user_label: null })
+                    });
+                }
                 cargarEventos();
             } catch (err) {
                 alert("Error: " + err.message);
@@ -546,7 +590,8 @@
 
         // --- Suscripción en Tiempo Real (Supabase Realtime) ---
         function suscribirRealtime() {
-            supabase
+            if (!supabaseClient) return;
+            supabaseClient
                 .channel('public:vehicle_passes')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'vehicle_passes' }, (payload) => {
                     const nuevo = payload.new;
