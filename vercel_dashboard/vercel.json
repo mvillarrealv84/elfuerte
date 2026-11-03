@@ -1,5 +1,6 @@
 {
-  "version": 2,
-  "name": "auditoria-pipas-dashboard",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

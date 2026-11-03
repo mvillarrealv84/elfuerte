@@ -177,10 +177,10 @@
             <!-- Filtro de Fecha y Buscador -->
             <div class="flex items-center space-x-3">
                 <select id="filtro-fecha" onchange="cargarEventos()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500">
-                    <option value="HOY" selected>Hoy</option>
+                    <option value="TODOS" selected>Todos los Registros</option>
+                    <option value="HOY">Hoy</option>
                     <option value="AYER">Ayer</option>
                     <option value="SEMANA">Últimos 7 días</option>
-                    <option value="TODOS">Histórico Completo</option>
                 </select>
 
                 <div class="relative">
@@ -268,11 +268,11 @@
 
                 const ahora = new Date();
                 if (rangoFecha === 'HOY') {
-                    const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).toISOString();
-                    query = query.gte('created_at', hoyInicio);
+                    const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
+                    query = query.gte('created_at', hoyInicio.toISOString());
                 } else if (rangoFecha === 'AYER') {
-                    const ayerInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1);
-                    const ayerFin = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+                    const ayerInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1, 0, 0, 0);
+                    const ayerFin = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
                     query = query.gte('created_at', ayerInicio.toISOString()).lt('created_at', ayerFin.toISOString());
                 } else if (rangoFecha === 'SEMANA') {
                     const semanaInicio = new Date(ahora.getTime() - (7 * 24 * 60 * 60 * 1000)).toISOString();
@@ -282,10 +282,14 @@
                 const { data, error } = await query;
                 if (error) throw error;
 
-                eventos = data || [];
-                actualizarEstadisticas();
-                renderizarEventos();
-                calcularAuditoria();
+                const nuevosIds = (data || []).map(d => `${d.id}-${d.user_label}`).join(',');
+                const viejosIds = eventos.map(d => `${d.id}-${d.user_label}`).join(',');
+                if (nuevosIds !== viejosIds || data.length !== eventos.length) {
+                    eventos = data || [];
+                    actualizarEstadisticas();
+                    renderizarEventos();
+                    calcularAuditoria();
+                }
             } catch (err) {
                 console.error("Error al cargar eventos de Supabase:", err);
             }
@@ -573,6 +577,9 @@
         cargarEventos();
         suscribirRealtime();
         lucide.createIcons();
+
+        // Auto-refresco continuo cada 3 segundos
+        setInterval(cargarEventos, 3000);
     </script>
 </body>
 </html>
