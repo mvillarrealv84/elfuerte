@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auditoría de Pipas - Dashboard Global (Vercel + Supabase)</title>
+    <title>Auditoría de Pipas - El Fuerte (Dashboard de Conciliación)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -11,8 +11,13 @@
     <!-- Supabase JS Client v2 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         body { font-family: 'Inter', sans-serif; }
+        .tab-nav.active {
+            border-bottom: 2px solid #06b6d4;
+            color: #22d3ee;
+            font-weight: 700;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white">
@@ -26,23 +31,39 @@
                 </div>
                 <div>
                     <div class="flex items-center space-x-2">
-                        <h1 class="font-extrabold text-base sm:text-lg text-white leading-tight">Auditoría de Pipas</h1>
+                        <h1 class="font-extrabold text-base sm:text-lg text-white leading-tight">Auditoría El Fuerte</h1>
                         <span class="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 text-[10px] font-mono px-2 py-0.5 rounded-full border border-cyan-500/30">Nube Vercel</span>
                     </div>
-                    <p class="text-[11px] text-slate-400">Control de Tomas de Agua con Inteligencia Artificial</p>
+                    <p class="text-[11px] text-slate-400">Sistema de Videovigilancia IA y Conciliación de Pipas de Agua</p>
                 </div>
             </div>
+
+            <!-- Navegación por Módulos -->
+            <nav class="hidden md:flex items-center space-x-6 text-xs">
+                <button onclick="cambiarSeccion('operaciones')" id="nav-btn-operaciones" class="tab-nav active py-5 transition flex items-center space-x-1.5">
+                    <i data-lucide="truck" class="w-4 h-4"></i>
+                    <span>Operaciones IA</span>
+                </button>
+                <button onclick="cambiarSeccion('conciliacion')" id="nav-btn-conciliacion" class="tab-nav py-5 text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5">
+                    <i data-lucide="scale" class="w-4 h-4"></i>
+                    <span>Módulo de Conciliación</span>
+                </button>
+                <button onclick="cambiarSeccion('tickets')" id="nav-btn-tickets" class="tab-nav py-5 text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5">
+                    <i data-lucide="receipt" class="w-4 h-4"></i>
+                    <span>Registro de Tickets</span>
+                </button>
+            </nav>
 
             <div class="flex items-center space-x-3">
                 <!-- Indicador de Tiempo Real Supabase -->
                 <div id="realtime-status" class="hidden sm:flex items-center space-x-2 text-xs bg-slate-950/80 px-3 py-1.5 rounded-full border border-slate-700">
                     <span id="realtime-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span id="realtime-text" class="text-slate-300">Nube Activa (Realtime)</span>
+                    <span id="realtime-text" class="text-slate-300">Nube Activa</span>
                 </div>
 
-                <button onclick="exportarCSV()" class="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 transition shadow">
+                <button onclick="exportarCSV()" class="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 transition shadow">
                     <i data-lucide="download" class="w-4 h-4 text-cyan-400"></i>
-                    <span class="hidden md:inline">Exportar Excel</span>
+                    <span class="hidden lg:inline">Exportar Auditoría</span>
                 </button>
 
                 <button onclick="cargarEventos()" class="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition border border-transparent hover:border-slate-700" title="Actualizar datos">
@@ -50,20 +71,27 @@
                 </button>
             </div>
         </div>
+
+        <!-- Navegación móvil -->
+        <div class="md:hidden flex px-4 space-x-4 border-t border-slate-700/80 text-xs overflow-x-auto bg-slate-900/90">
+            <button onclick="cambiarSeccion('operaciones')" id="nav-btn-operaciones-m" class="tab-nav active py-3">Operaciones</button>
+            <button onclick="cambiarSeccion('conciliacion')" id="nav-btn-conciliacion-m" class="tab-nav py-3 text-slate-400">Conciliación</button>
+            <button onclick="cambiarSeccion('tickets')" id="nav-btn-tickets-m" class="tab-nav py-3 text-slate-400">Tickets</button>
+        </div>
     </header>
 
     <!-- Main Content -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        <!-- Banner de Notificación de Nueva Detección en Vivo -->
+        <!-- Notificación Toast de Nueva Operación en Sitio -->
         <div id="toast-nueva-pipa" class="hidden transform transition-all duration-300 bg-gradient-to-r from-cyan-900/90 via-slate-800 to-cyan-900/90 border border-cyan-500/50 rounded-2xl p-4 shadow-xl flex items-center justify-between">
             <div class="flex items-center space-x-3">
                 <span class="p-2 bg-cyan-500 text-slate-950 rounded-xl font-bold">
                     <i data-lucide="bell-ring" class="w-5 h-5 animate-bounce"></i>
                 </span>
                 <div>
-                    <h4 class="text-sm font-bold text-white">¡Nueva Pipa Detectada en Sitio en Tiempo Real!</h4>
-                    <p id="toast-detalle" class="text-xs text-cyan-200">Se acaba de sincronizar una nueva evidencia con foto satelital/sitio.</p>
+                    <h4 class="text-sm font-bold text-white">¡Nueva Operación Detectada en Sitio!</h4>
+                    <p id="toast-detalle" class="text-xs text-cyan-200">Se sincronizó una nueva evidencia fotográfica desde la toma de agua.</p>
                 </div>
             </div>
             <button onclick="document.getElementById('toast-nueva-pipa').classList.add('hidden')" class="text-slate-400 hover:text-white p-1">
@@ -71,176 +99,351 @@
             </button>
         </div>
 
-        <!-- Top Metrics Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <!-- Total Pipas Detectadas -->
-            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm relative overflow-hidden">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pipas de Agua Registradas</p>
-                        <h3 id="stat-total-pipas" class="text-3xl font-black text-white mt-1">0</h3>
+        <!-- ========================================== -->
+        <!-- SECCIÓN 1: OPERACIONES Y EVIDENCIAS IA     -->
+        <!-- ========================================== -->
+        <div id="seccion-operaciones" class="space-y-6">
+            <!-- Top Metrics Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Total Operaciones Registradas -->
+                <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Operaciones de Llenado</p>
+                            <h3 id="stat-total-pipas" class="text-3xl font-black text-white mt-1">0</h3>
+                        </div>
+                        <div class="p-3 bg-cyan-500/10 text-cyan-400 rounded-xl border border-cyan-500/20">
+                            <i data-lucide="truck" class="w-6 h-6"></i>
+                        </div>
                     </div>
-                    <div class="p-3 bg-cyan-500/10 text-cyan-400 rounded-xl border border-cyan-500/20">
-                        <i data-lucide="truck" class="w-6 h-6"></i>
+                    <div class="mt-3 flex items-center text-xs text-slate-400">
+                        <span class="text-cyan-400 font-semibold mr-1">Vigilancia en Vivo</span> Bahía 1 & Bahía 2
                     </div>
                 </div>
-                <div class="mt-3 flex items-center text-xs text-slate-400">
-                    <span class="text-cyan-400 font-semibold mr-1">Auditoría IA</span> en la toma de agua
+
+                <!-- Con Placa Leída -->
+                <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Con Matrícula / Placa</p>
+                            <h3 id="stat-con-placa" class="text-3xl font-black text-emerald-400 mt-1">0</h3>
+                        </div>
+                        <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+                            <i data-lucide="check-circle" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs text-slate-400">
+                        Identificación ANPR automática
+                    </div>
+                </div>
+
+                <!-- Sin Placa (Rescate IA) -->
+                <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Sin Placa (Rescate IA)</p>
+                            <h3 id="stat-sin-placa" class="text-3xl font-black text-amber-400 mt-1">0</h3>
+                        </div>
+                        <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+                            <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs text-slate-400">
+                        Identificadas por modelo YOLO NCNN
+                    </div>
+                </div>
+
+                <!-- Despacho Estimado -->
+                <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Volumen Estimado</p>
+                            <h3 id="stat-volumen-total" class="text-3xl font-black text-cyan-300 mt-1">0 m³</h3>
+                        </div>
+                        <div class="p-3 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
+                            <i data-lucide="waves" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs text-slate-400">
+                        Capacidad estándar ~10,000 L / pipa
+                    </div>
                 </div>
             </div>
 
-            <!-- Con Placa Leída -->
-            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Con Placa Leída</p>
-                        <h3 id="stat-con-placa" class="text-3xl font-black text-emerald-400 mt-1">0</h3>
-                    </div>
-                    <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
-                        <i data-lucide="check-circle" class="w-6 h-6"></i>
-                    </div>
+            <!-- Barra de Filtros y Búsqueda -->
+            <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-slate-800/60 border border-slate-700 p-4 rounded-xl">
+                <!-- Filtros de Tipo y Bahía -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-semibold text-slate-400 uppercase mr-1">Filtrar:</span>
+                    <button onclick="cambiarFiltro('TODAS')" class="filtro-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-cyan-600 text-white shadow" data-filtro="TODAS">Todas</button>
+                    <button onclick="cambiarFiltro('LOAD_01')" class="filtro-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600" data-filtro="LOAD_01">Bahía 1 (LOAD_01)</button>
+                    <button onclick="cambiarFiltro('LOAD_02')" class="filtro-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600" data-filtro="LOAD_02">Bahía 2 (LOAD_02)</button>
+                    <button onclick="cambiarFiltro('SIN_PLACA')" class="filtro-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600" data-filtro="SIN_PLACA">Sin Placa</button>
                 </div>
-                <div class="mt-3 text-xs text-slate-400">
-                    Lectura automática por cámara ANPR
+
+                <!-- Filtro de Fecha y Buscador -->
+                <div class="flex items-center space-x-3">
+                    <select id="filtro-fecha" onchange="cargarEventos()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500">
+                        <option value="TODOS" selected>Todos los Registros</option>
+                        <option value="HOY">Hoy</option>
+                        <option value="AYER">Ayer</option>
+                        <option value="SEMANA">Últimos 7 días</option>
+                    </select>
+
+                    <div class="relative">
+                        <input id="buscador-placa" type="text" placeholder="Buscar por placa o UUID..." oninput="filtrarPlaca(this.value)" class="bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:border-cyan-500 w-44 sm:w-56 font-mono">
+                        <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5"></i>
+                    </div>
                 </div>
             </div>
 
-            <!-- Sin Placa (Identificada por IA) -->
-            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm">
+            <!-- Galería de Tarjetas de Operaciones -->
+            <div class="space-y-4">
                 <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Sin Placa (Rescate IA)</p>
-                        <h3 id="stat-sin-placa" class="text-3xl font-black text-amber-400 mt-1">0</h3>
-                    </div>
-                    <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
-                        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
-                    </div>
+                    <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                        <i data-lucide="history" class="w-5 h-5 text-cyan-400"></i>
+                        <span>Operaciones Individuales de Llenado</span>
+                    </h3>
+                    <span id="contador-filtrados" class="text-xs text-slate-400">Mostrando 0 registros</span>
                 </div>
-                <div class="mt-3 text-xs text-slate-400">
-                    Identificadas por modelo YOLO NCNN
-                </div>
-            </div>
 
-            <!-- Otros Vehículos Descartados -->
-            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Otros Vehículos</p>
-                        <h3 id="stat-otros" class="text-3xl font-black text-slate-400 mt-1">0</h3>
-                    </div>
-                    <div class="p-3 bg-slate-700/50 text-slate-400 rounded-xl border border-slate-600">
-                        <i data-lucide="car" class="w-6 h-6"></i>
-                    </div>
+                <div id="vehiculos-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Tarjetas dinámicas generadas desde Supabase -->
                 </div>
-                <div class="mt-3 text-xs text-slate-400">
-                    Autos y camionetas descartados
+
+                <!-- Estado Vacío -->
+                <div id="empty-state" class="hidden text-center py-16 bg-slate-800/40 border border-slate-700/60 rounded-2xl">
+                    <div class="w-12 h-12 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto text-slate-400 mb-3">
+                        <i data-lucide="inbox" class="w-6 h-6"></i>
+                    </div>
+                    <h4 class="text-sm font-semibold text-slate-300">No hay operaciones que coincidan</h4>
+                    <p class="text-xs text-slate-500 mt-1">Las pipas registradas por la Raspberry en sitio aparecerán aquí automáticamente.</p>
                 </div>
             </div>
         </div>
 
-        <!-- Módulo de Auditoría de Vales de Papel vs Cámara -->
-        <div class="bg-gradient-to-r from-slate-800 via-slate-850 to-slate-800 border border-slate-700 rounded-2xl p-6 shadow-md">
-            <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-                <div class="space-y-1">
+        <!-- ========================================== -->
+        <!-- SECCIÓN 2: MÓDULO DE CONCILIACIÓN         -->
+        <!-- ========================================== -->
+        <div id="seccion-conciliacion" class="hidden space-y-6">
+            <!-- Métricas de Conciliación -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <!-- Conciliadas -->
+                <div class="bg-slate-800/90 border border-emerald-500/30 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Operaciones Conciliadas</p>
+                            <h3 id="stat-conciliadas" class="text-3xl font-black text-emerald-400 mt-1">0</h3>
+                        </div>
+                        <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+                            <i data-lucide="check-check" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-2">Pipas físicas con ticket de cobro verificado</p>
+                </div>
+
+                <!-- Despacho Sin Ticket (Alerta Amarilla) -->
+                <div class="bg-slate-800/90 border border-amber-500/30 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-amber-400 uppercase tracking-wider">Pipas Sin Ticket (Alerta)</p>
+                            <h3 id="stat-sin-ticket" class="text-3xl font-black text-amber-400 mt-1">0</h3>
+                        </div>
+                        <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+                            <i data-lucide="alert-octagon" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-2">Operación observada sin comprobante registrado</p>
+                </div>
+
+                <!-- Tickets Fantasma (Alerta Roja) -->
+                <div class="bg-slate-800/90 border border-rose-500/30 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-rose-400 uppercase tracking-wider">Tickets Fantasma</p>
+                            <h3 id="stat-tickets-fantasma" class="text-3xl font-black text-rose-400 mt-1">0</h3>
+                        </div>
+                        <div class="p-3 bg-rose-500/10 text-rose-400 rounded-xl border border-rose-500/20">
+                            <i data-lucide="ghost" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-2">Ticket emitido sin detección de pipa en sitio</p>
+                </div>
+            </div>
+
+            <!-- Tabla de Conciliación Cruzada -->
+            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+                <div class="p-4 border-b border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                            <i data-lucide="scale" class="w-5 h-5 text-cyan-400"></i>
+                            <span>Tabla de Conciliación: Detección IA vs Tickets Administrativos</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Cruce automático por ventana temporal (±30 min) y coincidencia de vehículo o posición.</p>
+                    </div>
+
                     <div class="flex items-center space-x-2">
-                        <i data-lucide="scale" class="w-5 h-5 text-cyan-400"></i>
-                        <h2 class="text-lg font-bold text-white">Auditoría de Vales vs Pipas Registradas</h2>
+                        <button onclick="ejecutarAutoConciliacion()" class="flex items-center space-x-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow transition">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                            <span>Auto-Conciliar</span>
+                        </button>
                     </div>
-                    <p class="text-xs sm:text-sm text-slate-400">Ingresa la cantidad de vales cobrados en el turno para cotejar contra las fotos capturadas:</p>
                 </div>
 
-                <div class="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-                    <div class="flex items-center bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 focus-within:border-cyan-400">
-                        <label for="vales-input" class="text-xs font-semibold text-slate-400 mr-3">Vales cobrados:</label>
-                        <input id="vales-input" type="number" min="0" placeholder="0" class="w-20 bg-transparent text-xl font-bold text-white focus:outline-none text-right" oninput="calcularAuditoria()">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-700">
+                            <tr>
+                                <th class="p-3.5">Estado Conciliación</th>
+                                <th class="p-3.5">Operación IA (UUID / Hora)</th>
+                                <th class="p-3.5">Bahía / Placa</th>
+                                <th class="p-3.5">Permanencia / Llenado</th>
+                                <th class="p-3.5">Ticket Cotejado</th>
+                                <th class="p-3.5 text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-conciliacion-body" class="divide-y divide-slate-700/60 font-mono">
+                            <!-- Filas dinámicas -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SECCIÓN 3: REGISTRO DE TICKETS             -->
+        <!-- ========================================== -->
+        <div id="seccion-tickets" class="hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Formulario de Registro de Ticket -->
+                <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm space-y-4">
+                    <div class="space-y-1">
+                        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                            <i data-lucide="plus-circle" class="w-5 h-5 text-cyan-400"></i>
+                            <span>Registrar Ticket Administrativo</span>
+                        </h3>
+                        <p class="text-xs text-slate-400">Ingresa los comprobantes emitidos por caja o administración.</p>
                     </div>
 
-                    <!-- Resultado de Cuadre -->
-                    <div id="resultado-cuadre" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl border bg-slate-900/60 border-slate-700">
-                        <span class="text-sm text-slate-400">Introduce los vales para auditar.</span>
+                    <form id="form-ticket" onsubmit="guardarTicket(event)" class="space-y-3 text-xs">
+                        <div class="space-y-1">
+                            <label class="font-semibold text-slate-300">Folio / Número de Ticket:</label>
+                            <input id="tk-folio" type="text" placeholder="Ej. TCK-10492" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-cyan-500">
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="font-semibold text-slate-300">Fecha y Hora de Emisión:</label>
+                            <input id="tk-hora" type="datetime-local" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-cyan-500">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="space-y-1">
+                                <label class="font-semibold text-slate-300">Bahía Asignada:</label>
+                                <select id="tk-posicion" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-500 font-mono">
+                                    <option value="CUALQUIERA">Cualquiera</option>
+                                    <option value="LOAD_01">Bahía 1 (LOAD_01)</option>
+                                    <option value="LOAD_02">Bahía 2 (LOAD_02)</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="font-semibold text-slate-300">Capacidad (Litros):</label>
+                                <input id="tk-litros" type="number" step="1000" value="10000" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-cyan-500">
+                            </div>
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="font-semibold text-slate-300">Placa o Concesionario (Opcional):</label>
+                            <input id="tk-placa" type="text" placeholder="Ej. PIPA-01 o Placas" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-cyan-500">
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="font-semibold text-slate-300">Operador / Notas:</label>
+                            <input id="tk-operador" type="text" placeholder="Nombre de chofer o notas" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-500">
+                        </div>
+
+                        <div class="pt-2">
+                            <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 rounded-xl transition shadow flex items-center justify-center space-x-1.5">
+                                <i data-lucide="save" class="w-4 h-4"></i>
+                                <span>Guardar Ticket</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Listado de Tickets Registrados -->
+                <div class="lg:col-span-2 bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                                <i data-lucide="receipt" class="w-5 h-5 text-cyan-400"></i>
+                                <span>Tickets Registrados</span>
+                            </h3>
+                            <p class="text-xs text-slate-400">Comprobantes capturados en el sistema</p>
+                        </div>
+                        <button onclick="limpiarTodosTickets()" class="text-xs text-rose-400 hover:text-rose-300 hover:underline">
+                            Borrar Todos
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead class="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-700">
+                                <tr>
+                                    <th class="p-3">Folio</th>
+                                    <th class="p-3">Fecha y Hora</th>
+                                    <th class="p-3">Bahía</th>
+                                    <th class="p-3">Volumen</th>
+                                    <th class="p-3">Placa / Chofer</th>
+                                    <th class="p-3 text-right">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-tickets-body" class="divide-y divide-slate-700/60 font-mono">
+                                <!-- Lista de tickets -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Barra de Filtros y Búsqueda -->
-        <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-slate-800/60 border border-slate-700 p-4 rounded-xl">
-            <!-- Filtros de Tipo -->
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="text-xs font-semibold text-slate-400 uppercase mr-1">Filtrar:</span>
-                <button onclick="cambiarFiltro('TODAS')" class="filtro-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-cyan-600 text-white" data-filtro="TODAS">Todas las Pipas</button>
-                <button onclick="cambiarFiltro('SIN_PLACA')" class="filtro-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600" data-filtro="SIN_PLACA">Sin Placa</button>
-                <button onclick="cambiarFiltro('CON_PLACA')" class="filtro-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600" data-filtro="CON_PLACA">Con Placa</button>
-                <button onclick="cambiarFiltro('OTROS')" class="filtro-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600" data-filtro="OTROS">Otros</button>
-            </div>
-
-            <!-- Filtro de Fecha y Buscador -->
-            <div class="flex items-center space-x-3">
-                <select id="filtro-fecha" onchange="cargarEventos()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500">
-                    <option value="TODOS" selected>Todos los Registros</option>
-                    <option value="HOY">Hoy</option>
-                    <option value="AYER">Ayer</option>
-                    <option value="SEMANA">Últimos 7 días</option>
-                </select>
-
-                <div class="relative">
-                    <input id="buscador-placa" type="text" placeholder="Buscar por placa..." oninput="filtrarPlaca(this.value)" class="bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:border-cyan-500 w-40 sm:w-48">
-                    <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5"></i>
-                </div>
-            </div>
-        </div>
-
-        <!-- Vehicle Passes Gallery & List -->
-        <div class="space-y-4">
-            <div class="flex items-center justify-between">
-                <h3 class="text-base font-bold text-white flex items-center space-x-2">
-                    <i data-lucide="history" class="w-5 h-5 text-cyan-400"></i>
-                    <span>Evidencias y Registros Fotográficos</span>
-                </h3>
-                <span id="contador-filtrados" class="text-xs text-slate-400">Mostrando 0 registros</span>
-            </div>
-
-            <!-- List Grid -->
-            <div id="vehiculos-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <!-- Tarjetas dinámicas generadas desde Supabase -->
-            </div>
-
-            <!-- Estado Vacío -->
-            <div id="empty-state" class="hidden text-center py-16 bg-slate-800/40 border border-slate-700/60 rounded-2xl">
-                <div class="w-12 h-12 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto text-slate-400 mb-3">
-                    <i data-lucide="inbox" class="w-6 h-6"></i>
-                </div>
-                <h4 class="text-sm font-semibold text-slate-300">No hay registros con los filtros seleccionados</h4>
-                <p class="text-xs text-slate-500 mt-1">Las pipas registradas por la Raspberry en sitio aparecerán aquí automáticamente.</p>
-            </div>
-        </div>
     </main>
 
-    <!-- Modal para ver imagen ampliada con selector de foto original o con recuadro IA -->
+    <!-- Modal para ver imagen ampliada (Evidencia Dual Entrada/Salida/Anotada) -->
     <div id="image-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="cerrarModal()">
         <div class="max-w-4xl w-full bg-slate-800 rounded-2xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col" onclick="event.stopPropagation()">
             <div class="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-800">
                 <div>
-                    <div id="modal-title" class="text-sm font-bold text-white">Detalle de Evidencia</div>
-                    <div id="modal-info" class="text-xs text-slate-400 mt-0.5"></div>
+                    <div id="modal-title" class="text-sm font-bold text-white">Detalle de Operación</div>
+                    <div id="modal-info" class="text-xs text-slate-400 mt-0.5 font-mono"></div>
                 </div>
-                <div class="flex items-center space-x-2">
-                    <button id="btn-toggle-img" onclick="toggleImagenModal()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg border border-slate-600 text-slate-200">
-                        Ver Original / Anotada
-                    </button>
-                    <button onclick="cerrarModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
-                </div>
+                <button onclick="cerrarModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
             </div>
-            <div class="p-4 bg-slate-950 flex justify-center items-center min-h-[300px]">
-                <img id="modal-img" src="" alt="Evidencia en Nube" class="max-h-[75vh] object-contain rounded-lg shadow-lg">
+
+            <!-- Selector de Fotos (Entrada, Salida, Anotada) -->
+            <div class="px-4 py-2 bg-slate-900/90 border-b border-slate-700 flex items-center space-x-2 text-xs">
+                <span class="text-slate-400 font-semibold mr-1">Vistas:</span>
+                <button id="modal-tab-annot" onclick="cambiarFotoModal('annot')" class="px-3 py-1 rounded-lg font-semibold bg-cyan-600 text-white transition">
+                    🤖 Anotada IA
+                </button>
+                <button id="modal-tab-orig" onclick="cambiarFotoModal('orig')" class="px-3 py-1 rounded-lg font-semibold bg-slate-800 text-slate-300 hover:bg-slate-750 transition">
+                    📷 Entrada
+                </button>
+                <button id="modal-tab-end" onclick="cambiarFotoModal('end')" class="px-3 py-1 rounded-lg font-semibold bg-slate-800 text-slate-300 hover:bg-slate-750 transition">
+                    🏁 Salida
+                </button>
             </div>
+
+            <div class="p-4 bg-slate-950 flex justify-center items-center min-h-[320px]">
+                <img id="modal-img" src="" alt="Evidencia en Nube" class="max-h-[72vh] object-contain rounded-lg shadow-lg">
+            </div>
+
             <div class="p-3 bg-slate-850 border-t border-slate-700 text-xs text-slate-400 flex items-center justify-between">
-                <span>Almacenado de forma segura en Supabase Storage CDN</span>
+                <span id="modal-meta-txt" class="font-mono">Supabase Storage CDN</span>
                 <a id="modal-download-link" href="#" target="_blank" download class="text-cyan-400 hover:underline flex items-center space-x-1">
                     <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                    <span>Abrir archivo en alta resolución</span>
+                    <span>Abrir en alta resolución</span>
                 </a>
             </div>
         </div>
@@ -248,21 +451,47 @@
 
     <!-- Frontend Script conectado a Supabase -->
     <script>
-        // Configuración de Supabase
         const SUPABASE_URL = "https://rzrlulbhcswphsyzeabv.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_th7e9_KpbWc7hIAiv0JQrQ_eIsAIgTn";
 
-        // Inicializar cliente oficial de Supabase
         const supabaseClient = (window.supabase && window.supabase.createClient) 
             ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
             : null;
 
         let eventos = [];
+        let tickets = JSON.parse(localStorage.getItem('pipas_tickets') || '[]');
+        let conciliacionesManuales = JSON.parse(localStorage.getItem('pipas_conciliaciones') || '{}');
         let filtroActual = 'TODAS';
         let textoBusqueda = '';
-        let modalFotoActual = { orig: '', annot: '', showing: 'annot' };
+        let modalFotoActual = { orig: '', annot: '', end: '', active: 'annot' };
+        let seccionActiva = 'operaciones';
 
-        // Cargar eventos desde Supabase PostgreSQL
+        // --- NAVEGACIÓN ENTRE SECCIONES ---
+        function cambiarSeccion(seccion) {
+            seccionActiva = seccion;
+            ['operaciones', 'conciliacion', 'tickets'].forEach(s => {
+                document.getElementById(`seccion-${s}`).classList.add('hidden');
+                const btn = document.getElementById(`nav-btn-${s}`);
+                if (btn) btn.className = "tab-nav py-5 text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5";
+                const btnM = document.getElementById(`nav-btn-${s}-m`);
+                if (btnM) btnM.className = "tab-nav py-3 text-slate-400";
+            });
+
+            document.getElementById(`seccion-${seccion}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`nav-btn-${seccion}`);
+            if (activeBtn) activeBtn.className = "tab-nav active py-5 transition flex items-center space-x-1.5";
+            const activeBtnM = document.getElementById(`nav-btn-${seccion}-m`);
+            if (activeBtnM) activeBtnM.className = "tab-nav active py-3";
+
+            if (seccion === 'conciliacion') {
+                renderizarConciliacion();
+            } else if (seccion === 'tickets') {
+                renderizarTickets();
+            }
+            lucide.createIcons();
+        }
+
+        // --- CARGA DE OPERACIONES DESDE SUPABASE ---
         async function cargarEventos() {
             try {
                 const rangoFecha = document.getElementById('filtro-fecha').value;
@@ -290,7 +519,6 @@
                     }
                 }
 
-                // Fallback directo con fetch si el SDK no respondió
                 if (!data) {
                     let url = `${SUPABASE_URL}/rest/v1/vehicle_passes?select=*&order=created_at.desc`;
                     const res = await fetch(url, {
@@ -304,14 +532,10 @@
                     }
                 }
 
-                const nuevosIds = (data || []).map(d => `${d.id}-${d.user_label}`).join(',');
-                const viejosIds = eventos.map(d => `${d.id}-${d.user_label}`).join(',');
-                if (nuevosIds !== viejosIds || (data && data.length !== eventos.length)) {
-                    eventos = data || [];
-                    actualizarEstadisticas();
-                    renderizarEventos();
-                    calcularAuditoria();
-                }
+                eventos = data || [];
+                actualizarEstadisticas();
+                renderizarEventos();
+                renderizarConciliacion();
             } catch (err) {
                 console.error("Error al cargar eventos de Supabase:", err);
             }
@@ -321,48 +545,11 @@
             const pipas = eventos.filter(e => e.is_pipa);
             const conPlaca = pipas.filter(e => e.plate && e.plate !== 'SIN_PLACA');
             const sinPlaca = pipas.filter(e => !e.plate || e.plate === 'SIN_PLACA');
-            const otros = eventos.filter(e => !e.is_pipa);
 
             document.getElementById('stat-total-pipas').textContent = pipas.length;
             document.getElementById('stat-con-placa').textContent = conPlaca.length;
             document.getElementById('stat-sin-placa').textContent = sinPlaca.length;
-            document.getElementById('stat-otros').textContent = otros.length;
-        }
-
-        function calcularAuditoria() {
-            const valesInput = document.getElementById('vales-input');
-            const totalPipas = parseInt(document.getElementById('stat-total-pipas').textContent) || 0;
-            const contenedor = document.getElementById('resultado-cuadre');
-
-            if (valesInput.value === '') {
-                contenedor.className = "flex items-center space-x-3 px-4 py-2.5 rounded-xl border bg-slate-900/60 border-slate-700";
-                contenedor.innerHTML = `<span class="text-sm text-slate-400">Introduce los vales para auditar.</span>`;
-                return;
-            }
-
-            const vales = parseInt(valesInput.value) || 0;
-            const diferencia = totalPipas - vales;
-
-            if (diferencia === 0) {
-                contenedor.className = "flex items-center space-x-2 px-4 py-2.5 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-semibold";
-                contenedor.innerHTML = `
-                    <i data-lucide="check-check" class="w-5 h-5"></i>
-                    <span>¡Cuadre perfecto! ${vales} vales = ${totalPipas} pipas</span>
-                `;
-            } else if (diferencia > 0) {
-                contenedor.className = "flex items-center space-x-2 px-4 py-2.5 rounded-xl border bg-rose-500/10 border-rose-500/30 text-rose-400 font-bold";
-                contenedor.innerHTML = `
-                    <i data-lucide="alert-octagon" class="w-5 h-5"></i>
-                    <span>🚨 FALTANTE: ${diferencia} pipa(s) sin vale cobrado</span>
-                `;
-            } else {
-                contenedor.className = "flex items-center space-x-2 px-4 py-2.5 rounded-xl border bg-amber-500/10 border-amber-500/30 text-amber-400 font-semibold";
-                contenedor.innerHTML = `
-                    <i data-lucide="info" class="w-5 h-5"></i>
-                    <span>Hay más vales (${vales}) que pipas registradas (${totalPipas})</span>
-                `;
-            }
-            lucide.createIcons();
+            document.getElementById('stat-volumen-total').textContent = `${(pipas.length * 10).toLocaleString()} m³`;
         }
 
         function cambiarFiltro(tipo) {
@@ -388,18 +575,19 @@
             grid.innerHTML = '';
 
             let filtrados = eventos.filter(ev => {
-                if (filtroActual === 'TODAS' && !ev.is_pipa) return false;
+                if (filtroActual === 'LOAD_01' && ev.position_id !== 'LOAD_01') return false;
+                if (filtroActual === 'LOAD_02' && ev.position_id !== 'LOAD_02') return false;
                 if (filtroActual === 'SIN_PLACA' && (!ev.is_pipa || ev.plate !== 'SIN_PLACA')) return false;
-                if (filtroActual === 'CON_PLACA' && (!ev.is_pipa || ev.plate === 'SIN_PLACA')) return false;
-                if (filtroActual === 'OTROS' && ev.is_pipa) return false;
 
-                if (textoBusqueda && (!ev.plate || !ev.plate.toUpperCase().includes(textoBusqueda))) {
-                    return false;
+                if (textoBusqueda) {
+                    const plateMatch = ev.plate && ev.plate.toUpperCase().includes(textoBusqueda);
+                    const opMatch = ev.operation_id && ev.operation_id.toUpperCase().includes(textoBusqueda);
+                    if (!plateMatch && !opMatch) return false;
                 }
                 return true;
             });
 
-            document.getElementById('contador-filtrados').textContent = `Mostrando ${filtrados.length} de ${eventos.length} registros`;
+            document.getElementById('contador-filtrados').textContent = `Mostrando ${filtrados.length} de ${eventos.length} operaciones`;
 
             if (filtrados.length === 0) {
                 empty.classList.remove('hidden');
@@ -417,20 +605,57 @@
                 const fechaHora = fechaObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 const fecha = fechaObj.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 
-                const imgSrc = ev.annotated_image_url || ev.image_url || 'https://images.unsplash.com/photo-1584441405886-bc91be61e56a?auto=format&fit=crop&w=600&q=80';
+                const imgSrc = ev.annotated_image_url || ev.image_url || ev.end_image_url || 'https://images.unsplash.com/photo-1584441405886-bc91be61e56a?auto=format&fit=crop&w=600&q=80';
+
+                // Badges de Posición y Estado
+                const posId = ev.position_id || 'LOAD_01';
+                let posBadge = `<span class="bg-slate-700 text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">${posId}</span>`;
+                if (posId === 'LOAD_01') {
+                    posBadge = `<span class="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">B1 (LOAD_01)</span>`;
+                } else if (posId === 'LOAD_02') {
+                    posBadge = `<span class="bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">B2 (LOAD_02)</span>`;
+                }
+
+                const state = ev.state || 'COMPLETED';
+                let stateBadge = `<span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md">COMPLETADO</span>`;
+                if (state === 'FILLING') {
+                    stateBadge = `<span class="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md animate-pulse">LLENADO</span>`;
+                } else if (state === 'REVIEW_REQUIRED') {
+                    stateBadge = `<span class="bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md">REVISIÓN REQ.</span>`;
+                }
+
+                // Tiempos
+                const durTotal = ev.duration_seconds || 0;
+                const durFill = ev.filling_duration_seconds || 0;
+                const durMin = Math.floor(durTotal / 60);
+                const durSec = Math.floor(durTotal % 60);
+                const fillMin = Math.floor(durFill / 60);
+                const fillSec = Math.floor(durFill % 60);
+
+                const opIdShort = ev.operation_id ? ev.operation_id.substring(0, 8) : `#${ev.id}`;
+                const metaModal = `Posición: ${posId} | Estado: ${state} | Permanencia: ${durMin}m ${durSec}s | Llenado: ${fillMin}m ${fillSec}s | OP: ${opIdShort}`;
 
                 card.innerHTML = `
-                    <div class="relative bg-black aspect-video cursor-pointer overflow-hidden" onclick="abrirModal('${ev.image_url}', '${ev.annotated_image_url}', '${ev.vehicle_type}', '${ev.plate}', '${ev.created_at}')">
+                    <div class="relative bg-black aspect-video cursor-pointer overflow-hidden" onclick="abrirModal('${ev.image_url}', '${ev.annotated_image_url}', '${ev.end_image_url}', '${ev.vehicle_type}', '${ev.plate}', '${ev.created_at}', '${metaModal}')">
                         <img src="${imgSrc}" loading="lazy" alt="Evidencia" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
-                        <div class="absolute top-2 left-2 bg-slate-900/80 backdrop-blur-sm px-2.5 py-1 rounded-md text-[11px] font-medium text-slate-200">
-                            ${fecha} • ${fechaHora}
+                        <div class="absolute top-2 left-2 flex items-center space-x-1.5">
+                            <span class="bg-slate-900/80 backdrop-blur-sm px-2 py-0.5 rounded-md text-[11px] font-medium text-slate-200">
+                                ${fecha} • ${fechaHora}
+                            </span>
+                            ${posBadge}
                         </div>
-                        <div class="absolute top-2 right-2">
+                        <div class="absolute top-2 right-2 flex items-center space-x-1">
+                            ${stateBadge}
                             ${isPipa ? 
-                                `<span class="bg-cyan-500 text-slate-950 text-xs font-black px-2.5 py-0.5 rounded shadow">💧 PIPA</span>` : 
-                                `<span class="bg-slate-600/90 text-slate-200 text-xs font-medium px-2 py-0.5 rounded shadow">OTRO</span>`
+                                `<span class="bg-cyan-500 text-slate-950 text-xs font-black px-1.5 py-0.5 rounded shadow">💧</span>` : 
+                                `<span class="bg-slate-600/90 text-slate-200 text-xs font-medium px-1.5 py-0.5 rounded shadow">OTRO</span>`
                             }
                         </div>
+                        ${ev.end_image_url ? `
+                            <div class="absolute bottom-2 right-2 bg-slate-950/80 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] text-cyan-300 font-mono border border-cyan-500/30">
+                                📷 Evidencia Dual
+                            </div>
+                        ` : ''}
                     </div>
                     <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
                         <div class="flex items-center justify-between">
@@ -449,8 +674,14 @@
                             </div>
                         </div>
 
-                        <!-- Auditoría / Etiquetado en Nube -->
-                        <div class="border-t border-slate-700/60 pt-2.5 space-y-1.5">
+                        <!-- Métricas de Permanencia y Llenado -->
+                        <div class="text-[11px] text-slate-400 flex items-center justify-between bg-slate-900/60 p-2 rounded-xl border border-slate-700/60 font-mono">
+                            <div><span class="text-slate-500">Permanencia:</span> <strong class="text-slate-200">${durMin}m ${durSec}s</strong></div>
+                            <div><span class="text-slate-500">Llenado:</span> <strong class="text-cyan-400">${fillMin}m ${fillSec}s</strong></div>
+                        </div>
+
+                        <!-- Auditoría de Etiquetado -->
+                        <div class="border-t border-slate-700/60 pt-2 space-y-1.5">
                             <div class="flex items-center justify-between text-[10px] uppercase font-bold text-slate-400">
                                 <span>Verificación de Auditor</span>
                                 ${ev.user_label ? 
@@ -466,22 +697,22 @@
                                 </div>
                             ` : `
                                 <div class="grid grid-cols-3 gap-1.5 text-[11px]">
-                                    <button onclick="guardarEtiqueta(${ev.id}, 'pipa_agua')" class="bg-cyan-950/80 hover:bg-cyan-800 border border-cyan-500/40 text-cyan-200 py-1 px-1.5 rounded-lg flex items-center justify-center space-x-1 transition">
+                                    <button onclick="guardarEtiqueta(${ev.id}, 'pipa_agua')" class="bg-cyan-950/80 hover:bg-cyan-800 border border-cyan-500/40 text-cyan-200 py-1 px-1.5 rounded-lg flex items-center justify-center space-x-1 transition" title="Pipa de agua">
                                         <span>💧 Es Pipa</span>
                                     </button>
-                                    <button onclick="guardarEtiqueta(${ev.id}, 'automovil')" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 py-1 px-1.5 rounded-lg flex items-center justify-center space-x-1 transition">
+                                    <button onclick="guardarEtiqueta(${ev.id}, 'automovil')" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 py-1 px-1.5 rounded-lg flex items-center justify-center space-x-1 transition" title="Auto">
                                         <span>🚗 Auto</span>
                                     </button>
-                                    <button onclick="guardarEtiqueta(${ev.id}, 'falsa_alarma')" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 text-rose-300 py-1 px-1.5 rounded-lg flex items-center justify-center space-x-1 transition">
+                                    <button onclick="guardarEtiqueta(${ev.id}, 'falsa_alarma')" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 text-rose-300 py-1 px-1.5 rounded-lg flex items-center justify-center space-x-1 transition" title="Descartar">
                                         <span>❌ Descartar</span>
                                     </button>
                                 </div>
                             `}
                         </div>
 
-                        <div class="text-[11px] text-slate-500 flex items-center justify-between border-t border-slate-700/60 pt-2">
-                            <span>Origen: ${ev.source || 'Raspberry Pi'}</span>
-                            <span class="font-mono">ID #${ev.id}</span>
+                        <div class="text-[11px] text-slate-500 flex items-center justify-between border-t border-slate-700/60 pt-2 font-mono">
+                            <span class="text-slate-400">OP: <strong class="text-cyan-400">${opIdShort}</strong></span>
+                            <span>ID #${ev.id}</span>
                         </div>
                     </div>
                 `;
@@ -491,6 +722,224 @@
             lucide.createIcons();
         }
 
+        // --- MOTOR DE CONCILIACIÓN (OPERACIONES VS TICKETS) ---
+        function renderizarConciliacion() {
+            const tbody = document.getElementById('tabla-conciliacion-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            let countConciliadas = 0;
+            let countSinTicket = 0;
+            let ticketsUsados = new Set();
+
+            eventos.forEach(ev => {
+                const opId = ev.operation_id || `ID-${ev.id}`;
+                const opTime = new Date(ev.created_at).getTime();
+                
+                // Buscar coincidencia en tickets (manual o automática en ventana de 30 min)
+                let ticketAsociado = null;
+                const manualFolio = conciliacionesManuales[opId];
+                if (manualFolio) {
+                    ticketAsociado = tickets.find(t => t.folio === manualFolio);
+                }
+
+                if (!ticketAsociado) {
+                    // Cruce automático: ±30 min y misma bahía o sin especificar
+                    ticketAsociado = tickets.find(t => {
+                        if (ticketsUsados.has(t.folio)) return false;
+                        const tTime = new Date(t.hora).getTime();
+                        const diffMin = Math.abs(opTime - tTime) / (60 * 1000);
+                        if (diffMin <= 35) {
+                            if (t.posicion === 'CUALQUIERA' || t.posicion === ev.position_id) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    });
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/60 transition";
+
+                const fHora = new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const durMin = Math.floor((ev.duration_seconds || 0) / 60);
+                const fillMin = Math.floor((ev.filling_duration_seconds || 0) / 60);
+
+                if (ticketAsociado) {
+                    countConciliadas++;
+                    ticketsUsados.add(ticketAsociado.folio);
+                    tr.innerHTML = `
+                        <td class="p-3.5">
+                            <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold px-2 py-0.5 rounded-lg flex items-center space-x-1 w-max">
+                                <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+                                <span>CONCILIADO</span>
+                            </span>
+                        </td>
+                        <td class="p-3.5">
+                            <div class="text-white font-bold">${opId.substring(0, 8)}</div>
+                            <div class="text-[11px] text-slate-400 font-sans">${fHora}</div>
+                        </td>
+                        <td class="p-3.5">
+                            <div class="text-cyan-300">${ev.position_id || 'LOAD_01'}</div>
+                            <div class="text-[11px] text-slate-400">${ev.plate || 'SIN PLACA'}</div>
+                        </td>
+                        <td class="p-3.5">
+                            <div>${durMin}m permanencia</div>
+                            <div class="text-[11px] text-cyan-400">${fillMin}m llenado</div>
+                        </td>
+                        <td class="p-3.5">
+                            <div class="text-emerald-300 font-bold">${ticketAsociado.folio}</div>
+                            <div class="text-[11px] text-slate-400">${ticketAsociado.litros} L • ${ticketAsociado.placa || 'Sin Chofer'}</div>
+                        </td>
+                        <td class="p-3.5 text-right">
+                            <button onclick="desasociarTicket('${opId}')" class="text-[11px] text-rose-400 hover:underline">Desasociar</button>
+                        </td>
+                    `;
+                } else {
+                    countSinTicket++;
+                    tr.innerHTML = `
+                        <td class="p-3.5">
+                            <span class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[11px] font-bold px-2 py-0.5 rounded-lg flex items-center space-x-1 w-max">
+                                <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+                                <span>SIN TICKET</span>
+                            </span>
+                        </td>
+                        <td class="p-3.5">
+                            <div class="text-white font-bold">${opId.substring(0, 8)}</div>
+                            <div class="text-[11px] text-slate-400 font-sans">${fHora}</div>
+                        </td>
+                        <td class="p-3.5">
+                            <div class="text-cyan-300">${ev.position_id || 'LOAD_01'}</div>
+                            <div class="text-[11px] text-slate-400">${ev.plate || 'SIN PLACA'}</div>
+                        </td>
+                        <td class="p-3.5">
+                            <div>${durMin}m permanencia</div>
+                            <div class="text-[11px] text-cyan-400">${fillMin}m llenado</div>
+                        </td>
+                        <td class="p-3.5 text-slate-500 italic">
+                            Sin comprobante detectado
+                        </td>
+                        <td class="p-3.5 text-right">
+                            <button onclick="asociarTicketManual('${opId}')" class="text-[11px] text-cyan-400 hover:underline">+ Asignar Ticket</button>
+                        </td>
+                    `;
+                }
+                tbody.appendChild(tr);
+            });
+
+            // Tickets fantasma (aquellos tickets que no fueron asociados a ninguna operación)
+            const countFantasma = tickets.filter(t => !ticketsUsados.has(t.folio)).length;
+
+            document.getElementById('stat-conciliadas').textContent = countConciliadas;
+            document.getElementById('stat-sin-ticket').textContent = countSinTicket;
+            document.getElementById('stat-tickets-fantasma').textContent = countFantasma;
+            lucide.createIcons();
+        }
+
+        function ejecutarAutoConciliacion() {
+            renderizarConciliacion();
+            alert("✅ Conciliación automática ejecutada contra todos los registros y tickets actuales.");
+        }
+
+        function asociarTicketManual(opId) {
+            const folio = prompt(`Ingrese el folio del ticket que corresponde a la operación ${opId.substring(0,8)}:`);
+            if (!folio || !folio.trim()) return;
+            conciliacionesManuales[opId] = folio.trim();
+            localStorage.setItem('pipas_conciliaciones', JSON.stringify(conciliacionesManuales));
+            renderizarConciliacion();
+        }
+
+        function desasociarTicket(opId) {
+            delete conciliacionesManuales[opId];
+            localStorage.setItem('pipas_conciliaciones', JSON.stringify(conciliacionesManuales));
+            renderizarConciliacion();
+        }
+
+        // --- GESTIÓN DE TICKETS ADMINISTRATIVOS ---
+        function guardarTicket(event) {
+            event.preventDefault();
+            const folio = document.getElementById('tk-folio').value.trim();
+            const hora = document.getElementById('tk-hora').value;
+            const posicion = document.getElementById('tk-posicion').value;
+            const litros = parseInt(document.getElementById('tk-litros').value) || 10000;
+            const placa = document.getElementById('tk-placa').value.trim();
+            const operador = document.getElementById('tk-operador').value.trim();
+
+            if (!folio || !hora) return;
+
+            // Evitar duplicados por folio
+            const idx = tickets.findIndex(t => t.folio.toUpperCase() === folio.toUpperCase());
+            const nuevo = { folio, hora, posicion, litros, placa, operador };
+            if (idx >= 0) {
+                tickets[idx] = nuevo;
+            } else {
+                tickets.unshift(nuevo);
+            }
+
+            localStorage.setItem('pipas_tickets', JSON.stringify(tickets));
+            document.getElementById('form-ticket').reset();
+            establecerHoraDefaultTicket();
+            renderizarTickets();
+            renderizarConciliacion();
+            alert(`✅ Ticket ${folio} registrado con éxito.`);
+        }
+
+        function renderizarTickets() {
+            const tbody = document.getElementById('tabla-tickets-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (tickets.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500">No hay tickets registrados aún.</td></tr>`;
+                return;
+            }
+
+            tickets.forEach((t, i) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/60 transition";
+                const fStr = new Date(t.hora).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                tr.innerHTML = `
+                    <td class="p-3 text-cyan-300 font-bold">${t.folio}</td>
+                    <td class="p-3 text-slate-300">${fStr}</td>
+                    <td class="p-3"><span class="bg-slate-700 px-2 py-0.5 rounded text-[10px]">${t.posicion}</span></td>
+                    <td class="p-3 text-slate-300">${t.litros.toLocaleString()} L</td>
+                    <td class="p-3 text-slate-300">${t.placa || 'N/A'} ${t.operador ? '(' + t.operador + ')' : ''}</td>
+                    <td class="p-3 text-right">
+                        <button onclick="eliminarTicket(${i})" class="text-rose-400 hover:underline">Eliminar</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            lucide.createIcons();
+        }
+
+        function eliminarTicket(idx) {
+            if (!confirm(`¿Eliminar ticket ${tickets[idx].folio}?`)) return;
+            tickets.splice(idx, 1);
+            localStorage.setItem('pipas_tickets', JSON.stringify(tickets));
+            renderizarTickets();
+            renderizarConciliacion();
+        }
+
+        function limpiarTodosTickets() {
+            if (!confirm("¿Deseas borrar TODOS los tickets administrativos capturados?")) return;
+            tickets = [];
+            localStorage.removeItem('pipas_tickets');
+            localStorage.removeItem('pipas_conciliaciones');
+            renderizarTickets();
+            renderizarConciliacion();
+        }
+
+        function establecerHoraDefaultTicket() {
+            const input = document.getElementById('tk-hora');
+            if (input) {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                input.value = now.toISOString().slice(0, 16);
+            }
+        }
+
+        // --- GESTIÓN DE AUDITORÍA Y ETIQUETAS ---
         async function guardarEtiqueta(id, label) {
             try {
                 if (supabaseClient) {
@@ -533,56 +982,81 @@
             }
         }
 
-        function abrirModal(origUrl, annotUrl, tipo, placa, timestamp) {
+        // --- MODAL DE EVIDENCIA FOTOGRÁFICA DUAL ---
+        function abrirModal(origUrl, annotUrl, endUrl, tipo, placa, timestamp, metaText = '') {
             modalFotoActual.orig = origUrl || annotUrl;
             modalFotoActual.annot = annotUrl || origUrl;
-            modalFotoActual.showing = 'annot';
+            modalFotoActual.end = endUrl || null;
+            modalFotoActual.active = modalFotoActual.annot ? 'annot' : 'orig';
 
-            const modalImg = document.getElementById('modal-img');
-            modalImg.src = modalFotoActual.annot;
+            const btnEnd = document.getElementById('modal-tab-end');
+            if (modalFotoActual.end) {
+                btnEnd.classList.remove('hidden');
+            } else {
+                btnEnd.classList.add('hidden');
+            }
 
+            actualizarVistaFotoModal();
             document.getElementById('modal-title').textContent = `${tipo} - ${placa || 'Sin placa'}`;
             document.getElementById('modal-info').textContent = `Captura en sitio registrada el ${new Date(timestamp).toLocaleString()}`;
-            document.getElementById('modal-download-link').href = modalFotoActual.annot;
-
+            document.getElementById('modal-meta-txt').textContent = metaText || 'Supabase Storage CDN';
             document.getElementById('image-modal').classList.remove('hidden');
         }
 
-        function toggleImagenModal() {
+        function cambiarFotoModal(tipo) {
+            modalFotoActual.active = tipo;
+            actualizarVistaFotoModal();
+        }
+
+        function actualizarVistaFotoModal() {
             const modalImg = document.getElementById('modal-img');
-            if (modalFotoActual.showing === 'annot' && modalFotoActual.orig) {
-                modalImg.src = modalFotoActual.orig;
-                modalFotoActual.showing = 'orig';
-                document.getElementById('modal-download-link').href = modalFotoActual.orig;
-            } else if (modalFotoActual.annot) {
-                modalImg.src = modalFotoActual.annot;
-                modalFotoActual.showing = 'annot';
-                document.getElementById('modal-download-link').href = modalFotoActual.annot;
-            }
+            const link = document.getElementById('modal-download-link');
+
+            let activeUrl = modalFotoActual.annot;
+            if (modalFotoActual.active === 'orig') activeUrl = modalFotoActual.orig;
+            if (modalFotoActual.active === 'end' && modalFotoActual.end) activeUrl = modalFotoActual.end;
+
+            modalImg.src = activeUrl;
+            link.href = activeUrl;
+
+            // Actualizar botones
+            ['annot', 'orig', 'end'].forEach(t => {
+                const btn = document.getElementById(`modal-tab-${t}`);
+                if (!btn) return;
+                if (modalFotoActual.active === t) {
+                    btn.className = "px-3 py-1 rounded-lg font-semibold bg-cyan-600 text-white transition";
+                } else {
+                    btn.className = "px-3 py-1 rounded-lg font-semibold bg-slate-800 text-slate-300 hover:bg-slate-750 transition";
+                }
+            });
         }
 
         function cerrarModal() {
             document.getElementById('image-modal').classList.add('hidden');
         }
 
+        // --- EXPORTACIÓN A CSV / EXCEL ---
         function exportarCSV() {
             if (eventos.length === 0) {
                 alert("No hay datos para exportar.");
                 return;
             }
 
-            let csv = "ID,Fecha,Hora,Tipo_Vehiculo,Es_Pipa,Placa,Confianza_IA,Origen,URL_Foto,Auditado\n";
+            let csv = "ID,UUID_Operacion,Fecha,Hora,Bahia,Tipo_Vehiculo,Es_Pipa,Placa,Confianza_IA,Permanencia_Segundos,Llenado_Segundos,Estado,Ticket_Conciliado,Foto_Entrada,Foto_Salida,Auditado\n";
             eventos.forEach(e => {
                 const f = new Date(e.created_at);
                 const fecha = f.toISOString().split('T')[0];
                 const hora = f.toTimeString().split(' ')[0];
-                csv += `"${e.id}","${fecha}","${hora}","${e.vehicle_type}","${e.is_pipa}","${e.plate || 'SIN_PLACA'}","${e.confidence}","${e.source}","${e.image_url || e.annotated_image_url || ''}","${e.user_label || ''}"\n`;
+                const opId = e.operation_id || '';
+                const pos = e.position_id || 'LOAD_01';
+                const ticket = conciliacionesManuales[opId] || '';
+                csv += `"${e.id}","${opId}","${fecha}","${hora}","${pos}","${e.vehicle_type}","${e.is_pipa}","${e.plate || 'SIN_PLACA'}","${e.confidence}","${e.duration_seconds || 0}","${e.filling_duration_seconds || 0}","${e.state || 'COMPLETED'}","${ticket}","${e.image_url || ''}","${e.end_image_url || ''}","${e.user_label || ''}"\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.setAttribute("download", `auditoria_pipas_${new Date().toISOString().split('T')[0]}.csv`);
+            link.setAttribute("download", `conciliacion_pipas_${new Date().toISOString().split('T')[0]}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -595,16 +1069,14 @@
                 .channel('public:vehicle_passes')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'vehicle_passes' }, (payload) => {
                     const nuevo = payload.new;
-                    // Mostrar Toast de notificación
                     const toast = document.getElementById('toast-nueva-pipa');
-                    document.getElementById('toast-detalle').textContent = `Vehículo: ${nuevo.vehicle_type} | Placa: ${nuevo.plate || 'SIN_PLACA'} | Confianza: ${(nuevo.confidence * 100).toFixed(0)}%`;
+                    document.getElementById('toast-detalle').textContent = `Posición: ${nuevo.position_id || 'LOAD_01'} | Vehículo: ${nuevo.vehicle_type} | Placa: ${nuevo.plate || 'SIN_PLACA'}`;
                     toast.classList.remove('hidden');
 
-                    // Agregar al inicio de la lista y actualizar
                     eventos.unshift(nuevo);
                     actualizarEstadisticas();
                     renderizarEventos();
-                    calcularAuditoria();
+                    renderizarConciliacion();
 
                     setTimeout(() => {
                         toast.classList.add('hidden');
@@ -612,19 +1084,21 @@
                 })
                 .subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
-                        document.getElementById('realtime-text').textContent = "Nube Conectada en Vivo";
+                        document.getElementById('realtime-text').textContent = "Nube Conectada";
                         document.getElementById('realtime-dot').className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
                     }
                 });
         }
 
         // Carga Inicial
+        establecerHoraDefaultTicket();
         cargarEventos();
+        renderizarTickets();
         suscribirRealtime();
         lucide.createIcons();
 
-        // Auto-refresco continuo cada 3 segundos
-        setInterval(cargarEventos, 3000);
+        // Auto-refresco continuo cada 5 segundos
+        setInterval(cargarEventos, 5000);
     </script>
 </body>
 </html>
